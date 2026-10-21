@@ -104,8 +104,10 @@ module.exports = async function handler(req, res) {
     if (g.status === 429) {
       return res.status(429).json({ error: "Lots of people are asking right now. Please try again in a moment." });
     }
-    if (!g.ok) {
-      return res.status(502).json({ error: "The explainer could not answer just now." });
+        if (!g.ok) {
+      let detail = "";
+      try { detail = (await g.json()).error.message; } catch (e) {}
+      return res.status(502).json({ error: "The explainer could not answer just now.", status: g.status, detail: String(detail).slice(0, 300) });
     }
 
     const gd = await g.json();
