@@ -1,4 +1,4 @@
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.8-flash";
 const ID_PATTERN = /^[0-9A-Fa-f-]{36}$/;
 
 const SYSTEM =
