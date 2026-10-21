@@ -9,10 +9,13 @@
     body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; background: var(--bg); color: #1d1b2e; }
     h1 { margin-bottom: 4px; }
     h2 { margin-top: 32px; }
+    .sub { color: #6b6785; margin-top: 0; }
     .row { display: flex; gap: 8px; margin: 14px 0; }
-    input { flex: 1; padding: 12px 14px; font-size: 16px; border: 2px solid #d8d4f5; border-radius: 12px; }
+    input { flex: 1; padding: 12px 14px; font-size: 16px; border: 2px solid #d8d4f5; border-radius: 12px; min-width: 0; }
     input:focus { outline: none; border-color: var(--accent); }
     .go { padding: 12px 18px; font-size: 16px; border: 0; border-radius: 12px; background: var(--accent); color: white; cursor: pointer; }
+    .go:disabled { opacity: .5; cursor: default; }
+    .link { background: none; border: 0; color: var(--accent); font-size: 15px; cursor: pointer; padding: 8px 0; text-decoration: underline; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; transition: opacity .2s; }
     .grid.loading { opacity: .35; pointer-events: none; }
     .artist { border: 2px solid transparent; border-radius: 14px; padding: 8px; background: white; cursor: pointer; text-align: center; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08); transition: transform .15s, border-color .15s; }
@@ -22,26 +25,66 @@
     .spinner { width: 28px; height: 28px; border: 4px solid #d8d4f5; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 12px 0; }
     .spinner[hidden] { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .card { background: white; border-radius: 16px; padding: 4px 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-top: 16px; }
+    .card p { line-height: 1.55; }
+    details { margin-top: 12px; border-top: 1px solid #eceaf8; padding-top: 10px; }
+    summary { cursor: pointer; font-weight: 600; }
+    .chiprow { margin: 8px 0; }
+    .chip { display: inline-block; background: #efecff; color: #3b2fa0; border-radius: 999px; padding: 3px 10px; margin: 2px 4px 2px 0; font-size: 13px; }
   </style>
 </head>
 <body>
   <h1>The Explainer</h1>
-  <p>Pick an artist you like.</p>
+  <p class="sub">Ask anything. I will explain it using music you love.</p>
 
   <div class="row">
-    <input id="q" placeholder="Type an artist, e.g. Sauti Sol">
-    <button class="go" id="searchBtn">Search</button>
+    <input id="ask" maxlength="300" placeholder="What do you want explained?">
+    <button class="go" id="explainBtn">Explain</button>
   </div>
-  <p class="msg" id="msg"></p>
-  <div class="spinner" id="spinner" hidden></div>
-  <div class="grid" id="results"></div>
+  <div class="spinner" id="askSpinner" hidden></div>
+  <p class="msg" id="askMsg"></p>
 
-  <h2>Your favorites</h2>
-  <p class="msg" id="favMsg">None yet.</p>
-  <div class="grid" id="favs"></div>
+  <section class="card" id="answerBox" hidden>
+    <h2 style="margin-top:14px">Your explanation</h2>
+    <div id="answerText"></div>
+    <details open>
+      <summary>How Qloo shaped this answer</summary>
+      <p class="msg" id="whyFavs"></p>
+      <div id="tasteChips"></div>
+    </details>
+  </section>
+
+  <section id="favSection">
+    <h2>Your favorites</h2>
+    <p class="msg" id="favMsg">None yet.</p>
+    <div class="grid" id="favs"></div>
+    <button class="link" id="changeBtn">Change my favorites</button>
+  </section>
+
+  <section id="picker" hidden>
+    <h2>Pick up to 3 artists you like</h2>
+    <p class="msg">Search, tap the right one, then tap more to explore similar artists.</p>
+    <div class="row">
+      <input id="q" placeholder="Type an artist, e.g. Sauti Sol">
+      <button class="go" id="searchBtn">Search</button>
+    </div>
+    <p class="msg" id="msg"></p>
+    <div class="spinner" id="spinner" hidden></div>
+    <div class="grid" id="results"></div>
+  </section>
 
   <script>
     const favorites = [];
+    const ask = document.getElementById("ask");
+    const explainBtn = document.getElementById("explainBtn");
+    const askSpinner = document.getElementById("askSpinner");
+    const askMsg = document.getElementById("askMsg");
+    const answerBox = document.getElementById("answerBox");
+    const answerText = document.getElementById("answerText");
+    const whyFavs = document.getElementById("whyFavs");
+    const tasteChips = document.getElementById("tasteChips");
+    const picker = document.getElementById("picker");
+    const changeBtn = document.getElementById("changeBtn");
     const q = document.getElementById("q");
     const msg = document.getElementById("msg");
     const results = document.getElementById("results");
@@ -49,6 +92,26 @@
     const favsEl = document.getElementById("favs");
     const spinner = document.getElementById("spinner");
     let busy = false;
+    let asking = false;
+
+    function saveFavs() {
+      try { localStorage.setItem("explainer_favs", JSON.stringify(favorites)); } catch (e) {}
+    }
+
+    function loadFavs() {
+      try {
+        const raw = localStorage.getItem("explainer_favs");
+        if (!raw) return;
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) return;
+        list.slice(0, 3).forEach((a) => {
+          if (a && typeof a.id === "string" && typeof a.name === "string") {
+            const okImage = typeof a.image === "string" && a.image.startsWith("https://images.qloo.com/");
+            favorites.push({ id: a.id, name: a.name, image: okImage ? a.image : null });
+          }
+        });
+      } catch (e) {}
+    }
 
     function setLoading(on) {
       busy = on;
@@ -106,10 +169,10 @@
       if (busy) return;
       const already = favorites.some((f) => f.id === artist.id);
       if (!already && favorites.length >= 3) {
-        msg.textContent = "You can pick up to 3 favorites. Tap one below to remove it first.";
+        msg.textContent = "You can pick up to 3 favorites. Tap one under Your favorites to remove it first.";
         return;
       }
-      if (!already) favorites.push(artist);
+      if (!already) favorites.push({ id: artist.id, name: artist.name, image: artist.image });
       renderFavorites();
       msg.textContent = "Finding artists like " + artist.name + "...";
       setLoading(true);
@@ -133,10 +196,88 @@
     function renderFavorites() {
       favMsg.textContent = favorites.length ? "Tap one to remove it." : "None yet.";
       show(favsEl, favorites, remove);
+      saveFavs();
     }
 
+    function showAnswer(data) {
+      answerText.textContent = "";
+      String(data.explanation).split(/\n+/).map((s) => s.trim()).filter(Boolean).forEach((par) => {
+        const p = document.createElement("p");
+        p.textContent = par;
+        answerText.appendChild(p);
+      });
+
+      whyFavs.textContent = "Qloo's taste data for: " + favorites.map((f) => f.name).join(", ");
+      tasteChips.textContent = "";
+      const taste = data.taste || {};
+      [["Genres", taste.genres], ["Themes", taste.themes], ["Qualities", taste.traits]].forEach((pair) => {
+        const items = pair[1];
+        if (!items || !items.length) return;
+        const row = document.createElement("div");
+        row.className = "chiprow";
+        const label = document.createElement("strong");
+        label.textContent = pair[0] + ": ";
+        row.appendChild(label);
+        items.forEach((t) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = t;
+          row.appendChild(chip);
+        });
+        tasteChips.appendChild(row);
+      });
+
+      answerBox.hidden = false;
+      answerBox.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function explain() {
+      const question = ask.value.trim();
+      if (!question || asking) return;
+
+      if (favorites.length === 0) {
+        picker.hidden = false;
+        askMsg.textContent = "First, pick 1 to 3 artists you like below. Then tap Explain again.";
+        picker.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+
+      asking = true;
+      explainBtn.disabled = true;
+      askSpinner.hidden = false;
+      answerBox.hidden = true;
+      askMsg.textContent = "Tuning your explanation to your taste. This can take around 10 seconds...";
+
+      try {
+        const url =
+          "/api/explain?q=" + encodeURIComponent(question) +
+          "&ids=" + encodeURIComponent(favorites.map((f) => f.id).join(",")) +
+          "&names=" + encodeURIComponent(favorites.map((f) => f.name).join("|"));
+        const r = await fetch(url);
+        const data = await r.json();
+        if (!r.ok || !data.explanation) {
+          askMsg.textContent = data.error || "Something went wrong. Please try again.";
+        } else {
+          askMsg.textContent = "";
+          showAnswer(data);
+        }
+      } catch (e) {
+        askMsg.textContent = "Could not get an answer. Please try again in a moment.";
+      }
+
+      asking = false;
+      explainBtn.disabled = false;
+      askSpinner.hidden = true;
+    }
+
+    changeBtn.addEventListener("click", () => { picker.hidden = !picker.hidden; });
+    explainBtn.addEventListener("click", explain);
+    ask.addEventListener("keydown", (e) => { if (e.key === "Enter") explain(); });
     document.getElementById("searchBtn").addEventListener("click", search);
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+
+    loadFavs();
+    renderFavorites();
   </script>
 </body>
 </html>
