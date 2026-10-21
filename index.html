@@ -4,9 +4,115 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The Explainer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 16px; }
+    .row { display: flex; gap: 8px; margin: 12px 0; }
+    input { flex: 1; padding: 10px; font-size: 16px; }
+    .go { padding: 10px 16px; font-size: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .artist { border: 2px solid #ccc; border-radius: 12px; padding: 8px; background: none; cursor: pointer; text-align: center; font-size: 14px; }
+    .artist img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+    .msg { color: #666; }
+  </style>
 </head>
 <body>
   <h1>The Explainer</h1>
-  <p>Coming soon.</p>
+  <p>Pick an artist you like.</p>
+
+  <div class="row">
+    <input id="q" placeholder="Type an artist, e.g. Sauti Sol">
+    <button class="go" id="searchBtn">Search</button>
+  </div>
+  <p class="msg" id="msg"></p>
+  <div class="grid" id="results"></div>
+
+  <h2>Your favorites</h2>
+  <p class="msg" id="favMsg">None yet.</p>
+  <div class="grid" id="favs"></div>
+
+  <script>
+    const favorites = [];
+    const q = document.getElementById("q");
+    const msg = document.getElementById("msg");
+    const results = document.getElementById("results");
+    const favMsg = document.getElementById("favMsg");
+    const favsEl = document.getElementById("favs");
+
+    function makeCard(artist, onTap) {
+      const b = document.createElement("button");
+      b.className = "artist";
+      if (artist.image) {
+        const img = document.createElement("img");
+        img.src = artist.image;
+        img.alt = artist.name;
+        b.appendChild(img);
+      }
+      const label = document.createElement("div");
+      label.textContent = artist.name;
+      b.appendChild(label);
+      b.addEventListener("click", () => onTap(artist));
+      return b;
+    }
+
+    function show(listEl, artists, onTap) {
+      listEl.textContent = "";
+      artists.forEach((a) => listEl.appendChild(makeCard(a, onTap)));
+    }
+
+    async function getJson(url) {
+      const r = await fetch(url);
+      return r.json();
+    }
+
+    async function search() {
+      const name = q.value.trim();
+      if (!name) return;
+      msg.textContent = "Searching...";
+      results.textContent = "";
+      try {
+        const data = await getJson("/api/search?q=" + encodeURIComponent(name));
+        if (!data.artists || data.artists.length === 0) {
+          msg.textContent = "No artist found. Try another spelling.";
+          return;
+        }
+        msg.textContent = "Tap the right one:";
+        show(results, data.artists, pick);
+      } catch (e) {
+        msg.textContent = "Something went wrong. Try again.";
+      }
+    }
+
+    async function pick(artist) {
+      const already = favorites.some((f) => f.id === artist.id);
+      if (!already && favorites.length >= 3) {
+        msg.textContent = "You can pick up to 3 favorites. Tap one below to remove it first.";
+        return;
+      }
+      if (!already) favorites.push(artist);
+      renderFavorites();
+      msg.textContent = "Finding artists like " + artist.name + "...";
+      try {
+        const data = await getJson("/api/related?id=" + encodeURIComponent(artist.id));
+        msg.textContent = "Artists like " + artist.name + ". Tap any you also like:";
+        show(results, data.artists || [], pick);
+      } catch (e) {
+        msg.textContent = "Could not load similar artists.";
+      }
+    }
+
+    function remove(artist) {
+      const i = favorites.findIndex((f) => f.id === artist.id);
+      if (i >= 0) favorites.splice(i, 1);
+      renderFavorites();
+    }
+
+    function renderFavorites() {
+      favMsg.textContent = favorites.length ? "Tap one to remove it." : "None yet.";
+      show(favsEl, favorites, remove);
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", search);
+    q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+  </script>
 </body>
 </html>
