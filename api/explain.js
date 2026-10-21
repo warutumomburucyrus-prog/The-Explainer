@@ -1,4 +1,7 @@
-const MODEL = "gemini-3.8-flash";
+const MODELS = [
+  { name: "gemini-3.5-flash", timeoutMs: 12000 },
+  { name: "gemini-3.5-flash-lite", timeoutMs: 8000 },
+];
 const ID_PATTERN = /^[0-9A-Fa-f-]{36}$/;
 
 const SYSTEM =
@@ -33,7 +36,7 @@ async function tasteFor(id) {
   const response = await fetchWithTimeout(
     url,
     { headers: { "X-Api-Key": process.env.QLOO_API_KEY } },
-    7000
+    6000
   );
   const out = { genres: [], themes: [], traits: [], similar: [] };
   if (!response.ok) return out;
@@ -47,6 +50,34 @@ async function tasteFor(id) {
     out.traits.push(...(p.characteristics || []));
   });
   return out;
+}
+
+async function askGemini(model, body) {
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/models/" + model.name + ":generateContent";
+  try {
+    const g = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify(body),
+      },
+      model.timeoutMs
+    );
+    if (!g.ok) return { ok: false, status: g.status };
+    const gd = await g.json();
+    const parts =
+      gd.candidates && gd.candidates[0] && gd.candidates[0].content && gd.candidates[0].content.parts;
+    const text = parts ? parts.map((p) => p.text || "").join("") : "";
+    if (!text) return { ok: false, status: "empty" };
+    return { ok: true, text: text };
+  } catch (err) {
+    return { ok: false, status: err && err.name === "AbortError" ? "timeout" : "error" };
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -63,7 +94,6 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Pick at least one favorite artist first." });
   }
 
-  let step = "Qloo";
   try {
     const tastes = await Promise.all(ids.map(tasteFor));
     const all = { genres: [], themes: [], traits: [], similar: [] };
@@ -98,45 +128,30 @@ module.exports = async function handler(req, res) {
       generationConfig: { thinkingConfig: { thinkingLevel: "low" } },
     };
 
-    const geminiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
-
-    step = "Gemini";
-    const g = await fetchWithTimeout(
-      geminiUrl,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify(body),
-      },
-      20000
-    );
-
-    if (g.status === 429) {
-      return res.status(429).json({ error: "Lots of people are asking right now. Please try again in a moment." });
-    }
-    if (!g.ok) {
-      let detail = "";
-      try { detail = (await g.json()).error.message; } catch (e) {}
-      return res.status(502).json({ error: "The explainer could not answer just now.", status: g.status, detail: String(detail).slice(0, 300) });
+    const attempts = [];
+    for (const model of MODELS) {
+      const result = await askGemini(model, body);
+      if (result.ok) {
+        return res.status(200).json({
+          explanation: result.text,
+          taste: { genres, themes, traits },
+          model: model.name,
+        });
+      }
+      attempts.push({ model: model.name, status: result.status });
     }
 
-    const gd = await g.json();
-    const parts =
-      gd.candidates && gd.candidates[0] && gd.candidates[0].content && gd.candidates[0].content.parts;
-    const text = parts ? parts.map((p) => p.text || "").join("") : "";
-    if (!text) {
-      return res.status(502).json({ error: "The explainer had no answer. Try rephrasing." });
-    }
-
-    return res.status(200).json({ explanation: text, taste: { genres, themes, traits } });
+    const busy = attempts.some((a) => a.status === 429);
+    return res.status(busy ? 429 : 502).json({
+      error: busy
+        ? "Lots of people are asking right now. Please try again in a moment."
+        : "The explainer could not answer just now. Please try again.",
+      attempts: attempts,
+    });
   } catch (err) {
     if (err && err.name === "AbortError") {
-      return res.status(504).json({ error: "That took too long. Please try again.", step: step });
+      return res.status(504).json({ error: "The music lookup took too long. Please try again." });
     }
-    return res.status(500).json({ error: "Something went wrong.", step: step });
+    return res.status(500).json({ error: "Something went wrong." });
   }
 };
