@@ -123,17 +123,7 @@ async function pick(artist) {
   }
   setLoading(false);
 }
-      if (!already) favorites.push(artist);
-      renderFavorites();
-      msg.textContent = "Finding artists like " + artist.name + "...";
-      try {
-        const data = await getJson("/api/related?id=" + encodeURIComponent(artist.id));
-        msg.textContent = "Artists like " + artist.name + ". Tap any you also like:";
-        show(results, data.artists || [], pick);
-      } catch (e) {
-        msg.textContent = "Could not load similar artists.";
-      }
-    }
+    
 
     function remove(artist) {
       const i = favorites.findIndex((f) => f.id === artist.id);
