@@ -20,13 +20,21 @@ function top(list, n) {
   return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, n);
 }
 
+function fetchWithTimeout(url, options, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function tasteFor(id) {
   const url =
     "https://hackathon.api.qloo.com/v2/insights?filter.type=urn:entity:artist" +
     "&signal.interests.entities=" + id + "&take=5";
-  const response = await fetch(url, {
-    headers: { "X-Api-Key": process.env.QLOO_API_KEY },
-  });
+  const response = await fetchWithTimeout(
+    url,
+    { headers: { "X-Api-Key": process.env.QLOO_API_KEY } },
+    7000
+  );
   const out = { genres: [], themes: [], traits: [], similar: [] };
   if (!response.ok) return out;
   const data = await response.json();
@@ -55,6 +63,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Pick at least one favorite artist first." });
   }
 
+  let step = "Qloo";
   try {
     const tastes = await Promise.all(ids.map(tasteFor));
     const all = { genres: [], themes: [], traits: [], similar: [] };
@@ -86,25 +95,30 @@ module.exports = async function handler(req, res) {
           parts: [{ text: "Student's taste:\n" + tasteText + "\n\nExplain this to the student: " + question }],
         },
       ],
-      generationConfig: { temperature: 0.7 },
+      generationConfig: { thinkingConfig: { thinkingLevel: "low" } },
     };
 
     const geminiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
 
-    const g = await fetch(geminiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": process.env.GEMINI_API_KEY,
+    step = "Gemini";
+    const g = await fetchWithTimeout(
+      geminiUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      20000
+    );
 
     if (g.status === 429) {
       return res.status(429).json({ error: "Lots of people are asking right now. Please try again in a moment." });
     }
-        if (!g.ok) {
+    if (!g.ok) {
       let detail = "";
       try { detail = (await g.json()).error.message; } catch (e) {}
       return res.status(502).json({ error: "The explainer could not answer just now.", status: g.status, detail: String(detail).slice(0, 300) });
@@ -120,6 +134,9 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ explanation: text, taste: { genres, themes, traits } });
   } catch (err) {
-    return res.status(500).json({ error: "Something went wrong." });
+    if (err && err.name === "AbortError") {
+      return res.status(504).json({ error: "That took too long. Please try again.", step: step });
+    }
+    return res.status(500).json({ error: "Something went wrong.", step: step });
   }
 };
