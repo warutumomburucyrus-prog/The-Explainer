@@ -276,6 +276,17 @@
     document.getElementById("searchBtn").addEventListener("click", search);
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
 
+    let typingTimer;
+function liveSearch() {
+  if (busy) { typingTimer = setTimeout(liveSearch, 300); return; }
+  search();
+}
+q.addEventListener("input", () => {
+  clearTimeout(typingTimer);
+  if (q.value.trim().length < 2) return;
+  typingTimer = setTimeout(liveSearch, 500);
+});
+
     loadFavs();
     renderFavorites();
   </script>
