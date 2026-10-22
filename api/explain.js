@@ -164,7 +164,6 @@ module.exports = async function handler(req, res) {
       error: busy
         ? "Lots of people are asking right now. Please try again in a moment."
         : "The explainer could not answer just now. Please try again.",
-      attempts: attempts,
     });
   } catch (err) {
     if (err && err.name === "AbortError") {
