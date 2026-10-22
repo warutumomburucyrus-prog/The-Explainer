@@ -1,6 +1,6 @@
 const MODELS = [
-  { name: "gemini-3.5-flash", timeoutMs: 12000 },
-  { name: "gemini-3.5-flash-lite", timeoutMs: 8000 },
+  { name: "gemini-3.5-flash", timeoutMs: 30000 },
+  { name: "gemini-3.5-flash-lite", timeoutMs: 15000 },
 ];
 const ID_PATTERN = /^[0-9A-Fa-f-]{36}$/;
 
