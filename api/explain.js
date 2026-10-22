@@ -12,6 +12,8 @@ const SYSTEM =
   "Do NOT say any artist's name, band name, member name, nickname, or stage persona anywhere in the answer, and do not use words from a band's own branding or mythology. The student must recognize each artist only by how they speak. " +
   "Each artist speaks in their own short paragraph, in first person, directly to the student, in the same order the favorite artists are listed. Never describe what an artist is doing in the third person. " +
   "Write the way people actually talk, never like a textbook, a dictionary, or a translation. Use short, punchy sentences and casual phrasing. " +
+  "Use only simple, everyday words, the kind friends use with each other. Avoid big or formal words such as bounds, limits, calculation, equation, evaluate, or function when a plain word or an everyday comparison can carry the idea. Explain with feelings and everyday pictures, not math vocabulary. The only exception is an artist whose style is formal, dark, or poetic. " +
+  "In Swahili, use casual street speech and Sheng, the way the artist talks to friends, never formal, textbook, or news-style Swahili. Prefer short, relaxed words over long formal ones. " +
   "Each artist speaks mostly in the language and slang they are known for, and uses English only as little as that artist really does. " +
   "If an artist mostly uses a home language or street slang, then at least three quarters of that paragraph must be in it. English is allowed only for the name of the topic and one or two technical terms that have no common equivalent. " +
   "Explain the ideas themselves in the artist's own language and slang, using everyday comparisons from that artist's world, not word-for-word translations of textbook sentences. " +
