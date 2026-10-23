@@ -194,7 +194,8 @@
     }
 
     function renderFavorites() {
-      favMsg.textContent = favorites.length ? "Tap one to remove it." : "None yet.";
+      favMsg.textContent = favorites.length ? "Tap one to remove it." : "None yet. Pick your artists below to start.";
+      changeBtn.textContent = favorites.length ? "Change my favorites" : "Pick my favorites";
       show(favsEl, favorites, remove);
       saveFavs();
     }
