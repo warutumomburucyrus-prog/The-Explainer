@@ -48,7 +48,6 @@ module.exports = async function handler(req, res) {
           name: e.name,
           image: (e.properties && e.properties.image && e.properties.image.url) || null,
         })),
-        sample: result.entities[0],
       });
     }
   }
