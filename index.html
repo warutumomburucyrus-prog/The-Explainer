@@ -198,6 +198,8 @@
       changeBtn.textContent = favorites.length ? "Change my favorites" : "Pick my favorites";
       show(favsEl, favorites, remove);
       saveFavs();
+      document.getElementById("favSection").hidden = favorites.length === 0;
+      if (favorites.length === 0) picker.hidden = false;
     }
 
     function showAnswer(data) {
