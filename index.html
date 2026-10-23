@@ -22,7 +22,7 @@
     .artist:hover { transform: translateY(-2px); border-color: var(--accent); }
     .artist img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
     .msg { color: #6b6785; }
-    .spinner { width: 28px; height: 28px; border: 4px solid #d8d4f5; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 12px 0; }
+    .spinner { width: 28px; height: 28px; border: 8px solid #d8d4f5; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 12px 0; }
     .spinner[hidden] { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .card { background: white; border-radius: 16px; padding: 4px 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-top: 16px; }
@@ -230,6 +230,28 @@
           row.appendChild(chip);
         });
         tasteChips.appendChild(row);
+      });
+
+      artistCards.textContent = "";
+      (data.artists || []).forEach((a) => {
+        const box = document.createElement("div");
+        box.className = "chiprow";
+        const title = document.createElement("strong");
+        title.textContent = a.name + ": ";
+        box.appendChild(title);
+        [].concat(a.styleWords || [], a.themes || []).slice(0, 7).forEach((w) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = w;
+          box.appendChild(chip);
+        });
+        if (a.style) {
+          const line = document.createElement("p");
+          line.className = "msg";
+          line.textContent = a.style;
+          box.appendChild(line);
+        }
+        artistCards.appendChild(box);
       });
 
       answerBox.hidden = false;
