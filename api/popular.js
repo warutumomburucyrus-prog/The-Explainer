@@ -43,7 +43,11 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         place: place,
         tried: tried,
-        artists: result.entities.map((e) => ({ id: e.entity_id || e.id, name: e.name })),
+          artists: result.entities.map((e) => ({
+          id: e.entity_id || e.id,
+          name: e.name,
+          image: (e.properties && e.properties.image && e.properties.image.url) || null,
+        })),
         sample: result.entities[0],
       });
     }
