@@ -10,8 +10,9 @@ Built for the Qloo Agentic Hackathon.
 
 1. **Suggest artists near you.** On a first visit, `api/popular.js` asks Qloo for popular artists in the visitor's city (or country if the city has none). Vercel supplies the city and country in the request headers. The app never stores or uses the IP address.
 2. **Pick artists.** `api/search.js` finds artists through Qloo as you type. `api/related.js` shows similar artists when you tap one.
-3. **Ask a question.** `api/explain.js` asks Qloo for the taste data around each favorite artist (genres, lyrical themes, musical qualities) and keeps each artist's data separate.
-4. **Write the lesson.** The taste data and the question go to Gemini, which writes one scene where the artists teach together. The page shows a "How Qloo shaped this answer" panel with the data that was used.
+3. **Ask a question.** `api/explain.js` fetches each favorite artist's own Qloo entry (genres, lyrical themes, stage style and style words) and keeps each artist's data separate. It also fetches artists similar to each favorite as background.
+4. **Write the lesson.** The per-artist data and the question go to Gemini, which writes one scene where the artists teach together: the first opens, each next one reacts and adds a new idea, and the last wraps up.
+5. **Show the evidence.** The answer card has a "How Qloo shaped this answer" panel with the genres, themes and qualities, plus a block per artist with the style words and the stage-style description that Qloo supplied.
 
 Favorites are saved in the browser (localStorage). There is no database and no login.
 
@@ -20,8 +21,9 @@ Favorites are saved in the browser (localStorage). There is no database and no l
 All calls go to the Qloo hackathon API (`hackathon.api.qloo.com`) from serverless functions, so the key stays on the server.
 
 - Artist search (`/search`) for the picker.
-- Insights for artists with a taste signal, for similar artists and taste data (`/v2/insights`, `filter.type=urn:entity:artist`, `signal.interests.entities`).
-- Insights for artists with a location signal, for popular artists near the visitor (`signal.location.query`).
+- Insights with a taste signal (`/v2/insights`, `filter.type=urn:entity:artist`, `signal.interests.entities`) for similar artists.
+- Insights for one artist's full entry (`filter.results.entities`) for genres, lyrical themes, stage style, style words and fan words.
+- Insights with a location signal (`signal.location.query`) for popular artists near the visitor.
 
 ## Files
 
@@ -42,6 +44,7 @@ The location suggestions rely on headers that Vercel adds, so they only work whe
 ## Notes
 
 - Artist images come from Qloo's API and are shown only for the Qloo Agentic Hackathon.
+- Suggestions come straight from Qloo and can occasionally include entries that are not musicians.
 - The writing is AI-generated in the style of each artist. It is not their real words and may contain language mistakes.
 - Questions go to Google's Gemini free tier, where prompts may be used by Google.
 
