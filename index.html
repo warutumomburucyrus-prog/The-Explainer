@@ -273,6 +273,23 @@
       askSpinner.hidden = true;
     }
 
+      async function loadPopular() {
+      msg.textContent = "Finding popular artists near you...";
+      setLoading(true);
+      try {
+        const data = await getJson("/api/popular");
+        if (data.artists && data.artists.length) {
+          msg.textContent = "Popular in " + data.place + ". Tap up to 3 you like, or search for your own:";
+          show(results, data.artists, pick);
+        } else {
+          msg.textContent = "";
+        }
+      } catch (e) {
+        msg.textContent = "";
+      }
+      setLoading(false);
+    }
+
     changeBtn.addEventListener("click", () => { picker.hidden = !picker.hidden; });
     explainBtn.addEventListener("click", explain);
     ask.addEventListener("keydown", (e) => { if (e.key === "Enter") explain(); });
@@ -292,7 +309,7 @@ q.addEventListener("input", () => {
 
     loadFavs();
     renderFavorites();
-    if (favorites.length === 0) picker.hidden = false;
+    if (favorites.length === 0) { picker.hidden = false; loadPopular(); }
   </script>
 </body>
 </html>
