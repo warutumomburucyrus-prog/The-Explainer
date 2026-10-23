@@ -290,6 +290,7 @@ q.addEventListener("input", () => {
 
     loadFavs();
     renderFavorites();
+    if (favorites.length === 0) picker.hidden = false;
   </script>
 </body>
 </html>
