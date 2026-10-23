@@ -25,6 +25,7 @@ const SYSTEM =
   "The last artist wraps up the lesson so the student can remember it. " +
   "If there is only one favorite artist, that artist teaches the whole answer alone. " +
   "Let each artist's own genres, themes and qualities from the taste data guide that artist's voice and the examples they pick. Do not give one artist another artist's themes. " +
+  "Use each artist's stage style, style words, fan words and 'known for' line from the taste data to decide their energy, attitude and rhythm. They come from Qloo, so treat them as the truth about how that artist feels and let them override your own assumptions. Do not copy those lines word for word. " +
   "This is playful style, not their real words: do not mention specific songs, lyrics, or facts about the artists' lives. " +
   "The similar artists are background only: never name them. " +
   "The topic must be explained accurately and build step by step: the voices help, they never replace the facts. " +
@@ -71,6 +72,34 @@ async function tasteFor(id) {
   return out;
 }
 
+async function ownFor(id) {
+  const out = { genres: [], themes: [], traits: [], style: "", styleWords: [], fanWords: [], musicWords: [], knownFor: "" };
+  const list = (x, n) => (Array.isArray(x) ? x.slice(0, n) : []);
+  try {
+    const url =
+      "https://hackathon.api.qloo.com/v2/insights?filter.type=urn:entity:artist" +
+      "&filter.results.entities=" + id;
+    const response = await fetchWithTimeout(
+      url,
+      { headers: { "X-Api-Key": process.env.QLOO_API_KEY } },
+      6000
+    );
+    if (!response.ok) return out;
+    const data = await response.json();
+    const e = data.results && data.results.entities && data.results.entities[0];
+    const p = (e && e.properties) || {};
+    out.genres = list(p.primary_genres, 3);
+    out.themes = list(p.lyrical_themes, 4);
+    out.traits = list(p.characteristics, 3);
+    out.style = clean(p.performance_style, 220);
+    out.styleWords = list(p.adjectives_for_performance_style, 5);
+    out.fanWords = list(p.adjectives_for_fans, 5);
+    out.musicWords = list(p.adjectives_for_music, 5);
+    out.knownFor = clean(p.known_for, 220);
+  } catch (err) {}
+  return out;
+}
+
 async function askGemini(model, body) {
   const url =
     "https://generativelanguage.googleapis.com/v1beta/models/" + model.name + ":generateContent";
@@ -114,7 +143,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const tastes = await Promise.all(ids.map(tasteFor));
+      const [tastes, owns] = await Promise.all([
+      Promise.all(ids.map(tasteFor)),
+      Promise.all(ids.map(ownFor)),
+    ]);
     const all = { genres: [], themes: [], traits: [], similar: [] };
     tastes.forEach((t) => {
       all.genres.push(...t.genres);
@@ -130,16 +162,26 @@ module.exports = async function handler(req, res) {
 
     const perArtist = tastes.map((t, i) => ({
       name: names[i] || "Artist " + (i + 1),
-      genres: top(t.genres, 3),
-      themes: top(t.themes, 4),
-      traits: top(t.traits, 3),
+      genres: owns[i].genres.length ? owns[i].genres : top(t.genres, 3),
+      themes: owns[i].themes.length ? owns[i].themes : top(t.themes, 4),
+      traits: owns[i].traits.length ? owns[i].traits : top(t.traits, 3),
+      style: owns[i].style,
+      styleWords: owns[i].styleWords,
+      fanWords: owns[i].fanWords,
+      musicWords: owns[i].musicWords,
+      knownFor: owns[i].knownFor,
     }));
 
     const perArtistText = perArtist.map((a) =>
       a.name +
       " | genres: " + (a.genres.join(", ") || "not available") +
       " | themes: " + (a.themes.join(", ") || "not available") +
-      " | qualities: " + (a.traits.join(", ") || "not available")
+      " | qualities: " + (a.traits.join(", ") || "not available") +
+      " | stage style: " + (a.style || "not available") +
+      " | style words: " + (a.styleWords.join(", ") || "not available") +
+      " | fans are: " + (a.fanWords.join(", ") || "not available") +
+      " | music feels: " + (a.musicWords.join(", ") || "not available") +
+      " | known for: " + (a.knownFor || "not available")
     ).join("\n");
     
     const tasteText = [
