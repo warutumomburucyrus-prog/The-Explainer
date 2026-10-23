@@ -24,7 +24,7 @@ const SYSTEM =
   "Each next artist reacts to what the one before just said, for example by agreeing, adding to it, or teasing a little, and then adds one NEW idea, example, or step. Never repeat a point already made. " +
   "The last artist wraps up the lesson so the student can remember it. " +
   "If there is only one favorite artist, that artist teaches the whole answer alone. " +
-  "Let the THEMES and QUALITIES you are given guide each voice. " +
+  "Let each artist's own genres, themes and qualities from the taste data guide that artist's voice and the examples they pick. Do not give one artist another artist's themes. " +
   "This is playful style, not their real words: do not mention specific songs, lyrics, or facts about the artists' lives. " +
   "The similar artists are background only: never name them. " +
   "The topic must be explained accurately and build step by step: the voices help, they never replace the facts. " +
@@ -128,8 +128,23 @@ module.exports = async function handler(req, res) {
     const traits = top(all.traits, 4);
     const similar = top(all.similar, 6);
 
+    const perArtist = tastes.map((t, i) => ({
+      name: names[i] || "Artist " + (i + 1),
+      genres: top(t.genres, 3),
+      themes: top(t.themes, 4),
+      traits: top(t.traits, 3),
+    }));
+
+    const perArtistText = perArtist.map((a) =>
+      a.name +
+      " | genres: " + (a.genres.join(", ") || "not available") +
+      " | themes: " + (a.themes.join(", ") || "not available") +
+      " | qualities: " + (a.traits.join(", ") || "not available")
+    ).join("\n");
+    
     const tasteText = [
       "Favorite artists: " + (names.join(", ") || "not given"),
+      "Each favorite artist's own taste data, in the same order as the list above:\n" + perArtistText,
       "Genres around them: " + (genres.join(", ") || "not available"),
       "Themes in this music: " + (themes.join(", ") || "not available"),
       "Qualities of this music: " + (traits.join(", ") || "not available"),
@@ -154,6 +169,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({
           explanation: result.text,
           taste: { genres, themes, traits },
+          artists: perArtist,
           model: model.name,
         });
       }
